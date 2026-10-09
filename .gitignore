@@ -1,0 +1,29 @@
+# (a) Dataset chạy local, không push
+datasets/*
+!datasets/README.md
+!datasets/.gitkeep
+
+# Kết quả thô chạy local
+outputs/*
+!outputs/.gitkeep
+!outputs/predictions/.gitkeep
+
+# Môi trường ảo, cache
+.venv/
+venv/
+docling_env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Model weights và file nặng
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.ckpt
+
+# Bí mật và rác hệ điều hành
+.env
+.DS_Store
+Thumbs.db
