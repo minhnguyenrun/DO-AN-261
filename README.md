@@ -1,13 +1,13 @@
 # DO-AN-261 — So sánh các phương pháp Document Layout Analysis
 
 Đồ án môn học: đánh giá và so sánh các phương pháp phân tích cấu trúc layout tài liệu
-(Document Layout Analysis) trên các bộ dữ liệu chuẩn (DocLayNet, PubLayNet).
+(Document Layout Analysis) trên các bộ dữ liệu chuẩn (DocLayNet, PubLayNet, DocBank).
 
 ## Cấu trúc project
 
 ```
 DOAN261/
-├── datasets/               # dữ liệu (chạy local, KHÔNG push, trừ README.md/.gitkeep)
+├── datasets/               # dữ liệu (chạy local, KHÔNG push, trừ README.md)
 ├── scripts/download_datasets/  # script tải dataset tự động
 ├── src/common/              # code dùng chung: io, label_mapping, metrics, vis_utils
 ├── methods/                 # mỗi phương pháp (docling, paddleocr_vl, ...) một folder con
@@ -26,6 +26,7 @@ Xem chi tiết nguồn và cách tải dữ liệu tại [datasets/README.md](da
    python -m venv .venv
    .venv\Scripts\activate   # Windows
    pip install -r scripts/download_datasets/requirements.txt
+   pip install -r scripts/requirements.txt   # đánh giá (pycocotools cho mAP)
    pip install -r methods/<method>/requirements.txt
    ```
 
@@ -34,6 +35,7 @@ Xem chi tiết nguồn và cách tải dữ liệu tại [datasets/README.md](da
    ```bash
    python scripts/download_datasets/download_doclaynet.py --max-size-gb 1
    python scripts/download_datasets/download_publaynet.py --max-size-gb 1
+   python scripts/download_datasets/download_docbank.py --max-size-gb 1
    ```
 
 3. Chạy phương pháp tương ứng trong `methods/<method>/src/` hoặc notebook trong

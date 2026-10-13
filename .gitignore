@@ -1,26 +1,9 @@
-# (a) Dataset chạy local, không push
+# (a) Dataset chạy local, không push (script tải sẽ tự tạo thư mục)
 datasets/*
 !datasets/README.md
-!datasets/.gitkeep
-!datasets/doclaynet/
-!datasets/doclaynet/raw/
-datasets/doclaynet/raw/*
-!datasets/doclaynet/raw/.gitkeep
-!datasets/doclaynet/processed/
-datasets/doclaynet/processed/*
-!datasets/doclaynet/processed/.gitkeep
-!datasets/publaynet/
-!datasets/publaynet/raw/
-datasets/publaynet/raw/*
-!datasets/publaynet/raw/.gitkeep
-!datasets/publaynet/processed/
-datasets/publaynet/processed/*
-!datasets/publaynet/processed/.gitkeep
 
 # Kết quả thô chạy local
-outputs/*
-!outputs/.gitkeep
-!outputs/predictions/.gitkeep
+outputs/
 
 # Môi trường ảo, cache
 .venv/

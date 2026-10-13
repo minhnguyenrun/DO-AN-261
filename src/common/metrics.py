@@ -115,3 +115,58 @@ def evaluate(gt_by_image: dict, pred_by_image: dict, category_names: dict,
         },
         "per_category": per_category,
     }
+
+
+def coco_map(gt_coco: dict, predictions: list, iou_type: str = "bbox") -> dict:
+    """Tinh mAP/AR kieu COCO bang pycocotools.
+
+    gt_coco: dict COCO ({"images", "annotations", "categories"}), chi nen chua
+        cac anh da co du doan.
+    predictions: list {"image_id", "category_id", "bbox": [x, y, w, h], "score"}.
+        Box co category_id khong thuoc gt_coco["categories"] phai loai truoc.
+
+    Tra ve dict {"overall": {...}, "per_category": {category_id: {"name", "ap", "ap50"}}}.
+    """
+    import contextlib
+    import io
+
+    import numpy as np
+    from pycocotools.coco import COCO
+    from pycocotools.cocoeval import COCOeval
+
+    gt_coco = dict(gt_coco)
+    gt_coco["annotations"] = [
+        {**ann, "iscrowd": ann.get("iscrowd", 0),
+         "area": ann.get("area", ann["bbox"][2] * ann["bbox"][3])}
+        for ann in gt_coco["annotations"]
+    ]
+
+    # pycocotools in rat nhieu log, gom lai de khong lan voi bao cao.
+    log = io.StringIO()
+    with contextlib.redirect_stdout(log):
+        coco_gt = COCO()
+        coco_gt.dataset = gt_coco
+        coco_gt.createIndex()
+        coco_dt = coco_gt.loadRes(predictions) if predictions else COCO()
+        coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+
+    keys = ["map", "map50", "map75", "map_small", "map_medium", "map_large",
+            "ar1", "ar10", "ar100"]
+    overall = {k: float(v) for k, v in zip(keys, coco_eval.stats)}
+
+    # precision: [T iou thresholds, R recall points, K categories, A areas, M maxDets]
+    precision = coco_eval.eval["precision"]
+    names = {c["id"]: c["name"] for c in gt_coco["categories"]}
+    per_category = {}
+    for k, cat_id in enumerate(coco_eval.params.catIds):
+        p_all = precision[:, :, k, 0, -1]
+        p_50 = precision[0, :, k, 0, -1]
+        per_category[cat_id] = {
+            "name": names.get(cat_id, str(cat_id)),
+            "ap": float(np.mean(p_all[p_all > -1])) if (p_all > -1).any() else -1.0,
+            "ap50": float(np.mean(p_50[p_50 > -1])) if (p_50 > -1).any() else -1.0,
+        }
+    return {"overall": overall, "per_category": per_category}

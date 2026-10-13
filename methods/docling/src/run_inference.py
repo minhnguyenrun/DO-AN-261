@@ -64,20 +64,24 @@ def build_converter() -> DocumentConverter:
 
 def run_on_image(converter: DocumentConverter, image_path: Path) -> dict:
     result = converter.convert(str(image_path))
-    doc = result.document
-    page = doc.pages[1]
+    page = result.pages[0]
     width, height = page.size.width, page.size.height
 
+    # Lấy box từ page.assembled.elements thay vì doc.iterate_items():
+    #  - iterate_items() mặc định bỏ qua content layer "furniture", tức là làm
+    #    mất toàn bộ page_header/page_footer mà model vẫn phát hiện được.
+    #  - mỗi element giữ cluster gốc của model layout, có confidence -> dùng
+    #    làm "score" để tính mAP kiểu COCO.
     detections = []
-    for item, _level in doc.iterate_items():
-        if not item.prov:
-            continue
-        label = item.label.value
-        bbox = item.prov[0].bbox.to_top_left_origin(height)
+    for element in page.assembled.elements:
+        cluster = element.cluster
+        label = cluster.label.value
+        bbox = cluster.bbox.to_top_left_origin(height)
         detections.append({
             "category_id": LABEL_TO_DOCLAYNET_ID.get(label),
             "category_name": label,
             "bbox": [bbox.l, bbox.t, bbox.r - bbox.l, bbox.b - bbox.t],
+            "score": float(cluster.confidence),
         })
 
     return {
@@ -99,7 +103,9 @@ def main():
     output_dir = ROOT_DIR / "outputs" / "predictions" / "docling" / args.dataset
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    image_paths = sorted(images_dir.glob("*.png"), key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
+    image_paths = sorted(
+        (p for p in images_dir.iterdir() if p.suffix.lower() in (".png", ".jpg")),
+        key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
     if args.limit > 0:
         image_paths = image_paths[: args.limit]
 
