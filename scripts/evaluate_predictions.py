@@ -28,7 +28,7 @@ def load_gt(gt_path: Path) -> tuple:
     with open(gt_path, "r", encoding="utf-8") as f:
         gt = json.load(f)
     category_names = {c["id"]: c["name"] for c in gt["categories"]}
-    gt_by_image = {}
+    gt_by_image = {image["id"]: [] for image in gt["images"]}
     for ann in gt["annotations"]:
         gt_by_image.setdefault(ann["image_id"], []).append(
             {"category_id": ann["category_id"], "bbox": ann["bbox"]})

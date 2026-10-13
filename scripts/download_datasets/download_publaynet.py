@@ -112,14 +112,15 @@ def extract_processed(downloaded: list):
                     "height": int(row["height"]),
                 })
 
-                for ann in row["annotations"]:
+                annotations = row["annotations"]
+                for ann_index in range(len(annotations["annotation_id"])):
                     coco["annotations"].append({
-                        "id": int(ann["annotation_id"]),
+                        "id": int(annotations["annotation_id"][ann_index]),
                         "image_id": image_id,
-                        "category_id": int(ann["category_id"]),
-                        "bbox": [float(x) for x in ann["bbox"]],
-                        "area": float(ann["area"]),
-                        "iscrowd": bool(ann["iscrowd"]),
+                        "category_id": int(annotations["category_id"][ann_index]) - 1,
+                        "bbox": [float(x) for x in annotations["bbox"][ann_index]],
+                        "area": float(annotations["area"][ann_index]),
+                        "iscrowd": bool(annotations["iscrowd"][ann_index]),
                     })
 
         out_path = annotations_dir / f"{split}.json"

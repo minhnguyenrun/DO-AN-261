@@ -5,7 +5,7 @@ Phương pháp phân tích layout tài liệu dùng [Docling](https://github.com
 ## Cấu trúc
 
 - `src/` — code chạy inference, xuất dự đoán ra `outputs/predictions/docling/<dataset>/*.json`
-- `notebooks/` — notebook thử nghiệm, phân tích kết quả
+- `notebooks/docling_report.ipynb` — chạy inference, xem metric và hiển thị Ground Truth so với prediction
 - `report/` — báo cáo PDF cho phương pháp này
 
 ## Cách chạy
@@ -24,6 +24,13 @@ Kết quả JSON lưu tại `outputs/predictions/docling/doclaynet/<image_id>.js
 (mỗi ảnh một file, gồm `detections`: list `{category_id, category_name, bbox, score}`,
 trong đó `score` là confidence của model layout, dùng để tính mAP).
 Hình so sánh lưu tại `visualization/figures/docling_doclaynet/<image_id>.png`.
+
+Có thể mở và chạy lần lượt các cell trong
+[`notebooks/docling_report.ipynb`](notebooks/docling_report.ipynb) để kết hợp
+inference, đánh giá strict/loose và trực quan hóa trong một report. Notebook
+mặc định chạy inference trên toàn bộ ảnh có trong ground truth local (1,928 ảnh
+hiện tại); nếu lần chạy bị gián đoạn, `--skip-existing` cho phép tiếp tục. Để
+report gọn, notebook chỉ tạo hình minh họa cho 20 ảnh.
 
 ## Ghi chú kỹ thuật
 
