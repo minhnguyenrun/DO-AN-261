@@ -74,12 +74,14 @@ def main():
     parser.add_argument("--dataset", default="doclaynet", help="Ten dataset (vd: doclaynet)")
     parser.add_argument("--split", default="train", help="Split cua ground truth (vd: train)")
     parser.add_argument("--limit", type=int, default=10, help="So anh toi da se ve (mac dinh 10)")
+    parser.add_argument("--output-dir", type=Path, default=None,
+                        help="Thu muc output (mac dinh visualization/figures/<method>_<dataset>)")
     args = parser.parse_args()
 
     images_dir = ROOT_DIR / "datasets" / args.dataset / "processed" / "images"
     predictions_dir = ROOT_DIR / "outputs" / "predictions" / args.method / args.dataset
     gt_path = ROOT_DIR / "datasets" / args.dataset / "processed" / "annotations" / f"{args.split}.json"
-    output_dir = ROOT_DIR / "visualization" / "figures" / f"{args.method}_{args.dataset}"
+    output_dir = args.output_dir or ROOT_DIR / "visualization" / "figures" / f"{args.method}_{args.dataset}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with open(gt_path, "r", encoding="utf-8") as f:

@@ -93,6 +93,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="doclaynet", help="Ten dataset (vd: doclaynet)")
     parser.add_argument("--limit", type=int, default=20, help="So anh toi da se chay (mac dinh 20)")
+    parser.add_argument("--skip-existing", action="store_true",
+                        help="Bo qua anh da co file prediction de tiep tuc lan chay truoc")
     args = parser.parse_args()
 
     images_dir = ROOT_DIR / "datasets" / args.dataset / "processed" / "images"
@@ -102,6 +104,11 @@ def main():
     image_paths = sorted(images_dir.glob("*.png"), key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
     if args.limit > 0:
         image_paths = image_paths[: args.limit]
+    if args.skip_existing:
+        image_paths = [
+            image_path for image_path in image_paths
+            if not (output_dir / f"{image_path.stem}.json").exists()
+        ]
 
     print(f"[docling] Chay layout detection tren {len(image_paths)} anh tu {images_dir}")
     converter = build_converter()

@@ -5,7 +5,7 @@ Phương pháp phân tích layout tài liệu dùng [Docling](https://github.com
 ## Cấu trúc
 
 - `src/` — code chạy inference, xuất dự đoán ra `outputs/predictions/docling/<dataset>/*.json`
-- `notebooks/` — notebook thử nghiệm, phân tích kết quả
+- `notebooks/docling_report.ipynb` — chạy inference, xem metric và hiển thị Ground Truth so với prediction
 - `report/` — báo cáo PDF cho phương pháp này
 
 ## Cách chạy
@@ -16,6 +16,9 @@ pip install -r methods/docling/requirements.txt
 # chay layout detection tren N anh dau tien cua datasets/doclaynet/processed/images
 python methods/docling/src/run_inference.py --dataset doclaynet --limit 20
 
+# bo qua prediction da co, co the dung de tiep tuc sau khi gian doan
+python methods/docling/src/run_inference.py --dataset doclaynet --limit 0 --skip-existing
+
 # ve hinh so sanh Ground Truth vs. du doan
 python visualization/scripts/visualize_predictions.py --method docling --dataset doclaynet --limit 20
 ```
@@ -23,6 +26,13 @@ python visualization/scripts/visualize_predictions.py --method docling --dataset
 Kết quả JSON lưu tại `outputs/predictions/docling/doclaynet/<image_id>.json`
 (mỗi ảnh một file, gồm `detections`: list `{category_id, category_name, bbox}`).
 Hình so sánh lưu tại `visualization/figures/docling_doclaynet/<image_id>.png`.
+
+Có thể mở và chạy lần lượt các cell trong
+[`notebooks/docling_report.ipynb`](notebooks/docling_report.ipynb) để kết hợp
+inference, đánh giá strict/loose và trực quan hóa trong một report. Notebook
+mặc định chạy inference trên toàn bộ ảnh có trong ground truth local (1,928 ảnh
+hiện tại); nếu lần chạy bị gián đoạn, `--skip-existing` cho phép tiếp tục. Để
+report gọn, notebook chỉ tạo hình minh họa cho 20 ảnh.
 
 ## Ghi chú kỹ thuật
 
@@ -36,19 +46,24 @@ Hình so sánh lưu tại `visualization/figures/docling_doclaynet/<image_id>.pn
   loại bỏ theo mặc định — phải set `layout_options.keep_empty_clusters =
   True` để giữ lại đầy đủ box layout.
 
-## Kết quả đánh giá (20 ảnh đầu, doclaynet/train, IoU >= 0.5)
+## Kết quả đánh giá (1,928 ảnh DocLayNet train local, IoU >= 0.5)
 
 Chạy bằng `python scripts/evaluate_predictions.py --method docling --dataset doclaynet --loose`.
 
-| | Precision | Recall | F1 |
-|---|---|---|---|
-| Overall (so khớp cả vị trí lẫn nhãn) | 0.765 | 0.780 | 0.772 |
-| Overall (chỉ so vị trí, bỏ qua nhãn) | 0.808 | 0.824 | 0.816 |
+| Matching | Precision | Recall | F1 | TP | FP | FN |
+|---|---:|---:|---:|---:|---:|---:|
+| Strict (vị trí + nhãn) | 0.869 | 0.778 | 0.821 | 18,840 | 2,830 | 5,389 |
+| Loose (chỉ vị trí) | 0.907 | 0.811 | 0.856 | 19,650 | 2,020 | 4,579 |
 
-Per-category đáng chú ý: `Table` và `Picture` đạt recall 1.00 (20/20, 6/6).
-`Text` khá tốt (recall 0.83). `Section-header` recall rất cao (0.98) nhưng
-precision thấp (0.57) — Docling tách tên người/chức danh thành nhiều
-`section_header` nhỏ trong khi Ground Truth gộp vào 1 khối `Text`.
+Strict theo lớp: `Table` F1 0.936, `Text` F1 0.898, `Section-header` F1
+0.843, `Picture` F1 0.812. `Page-header` và `Page-footer` có recall 0.000
+strict trên tập này; khi bỏ yêu cầu nhãn, recall lần lượt là 0.082 và 0.010,
+nên phần lớn các vùng này vẫn chưa được định vị đúng ở IoU >= 0.5.
+
+Đây là tập train local gồm 1,928 ảnh được giải nén từ hai shard đã tải, không
+phải toàn bộ DocLayNet. Mỗi ảnh có một file prediction; evaluator tính cả ảnh
+không có annotation bằng cách giữ chúng trong tập Ground Truth với danh sách box
+rỗng.
 
 **`Page-header` và `Page-footer` recall = 0.00 (0/7 và 0/17) — kể cả khi bỏ
 qua nhãn (loose).** Nghĩa là Docling không vẽ bất kỳ box nào đè lên vùng này,
