@@ -52,6 +52,11 @@ def run_on_image(converter: DocumentConverter, image_path: Path) -> dict:
     page = document.pages[1]
     width, height = page.size.width, page.size.height
 
+    # Lấy box từ page.assembled.elements thay vì doc.iterate_items():
+    #  - iterate_items() mặc định bỏ qua content layer "furniture", tức là làm
+    #    mất toàn bộ page_header/page_footer mà model vẫn phát hiện được.
+    #  - mỗi element giữ cluster gốc của model layout, có confidence -> dùng
+    #    làm "score" để tính mAP kiểu COCO.
     detections = []
     for item, _ in document.iterate_items():
         if not item.prov:

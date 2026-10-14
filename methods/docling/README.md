@@ -14,10 +14,7 @@ Phương pháp phân tích layout tài liệu dùng [Docling](https://github.com
 pip install -r methods/docling/requirements.txt
 
 # chay layout detection tren N anh dau tien cua datasets/doclaynet/processed/images
-python methods/docling/src/run_inference.py --dataset doclaynet --limit 20
-
-# bo qua prediction da co, co the dung de tiep tuc sau khi gian doan
-python methods/docling/src/run_inference.py --dataset doclaynet --limit 0 --skip-existing
+python methods/docling/src/run_inference.py --dataset doclaynet --limit 765
 
 # ve hinh so sanh Ground Truth vs. du doan
 python visualization/scripts/visualize_predictions.py --method docling --dataset doclaynet --limit 20 --output-dir outputs/reports/docling_doclaynet
@@ -45,48 +42,59 @@ report gọn, notebook chỉ tạo hình minh họa cho 20 ảnh.
 - Vì tắt OCR nên các cluster text "rỗng" (không có nội dung) sẽ bị Docling
   loại bỏ theo mặc định — phải set `layout_options.keep_empty_clusters =
   True` để giữ lại đầy đủ box layout.
+- Box được lấy từ `ConversionResult.pages[0].assembled.elements` (mỗi element
+  giữ `cluster` gốc của model, có `label`, `bbox`, `confidence`), **không** lấy
+  từ `document.iterate_items()`: hàm này mặc định bỏ qua content layer
+  "furniture", tức là làm mất toàn bộ `page_header`/`page_footer`.
 
-## Kết quả đánh giá (1,928 ảnh DocLayNet train local, IoU >= 0.5)
+## Kết quả đánh giá (765 ảnh đầu, doclaynet/train, IoU >= 0.5)
 
-Chạy bằng `python scripts/evaluate_predictions.py --method docling --dataset doclaynet --loose`.
+Chạy bằng `python scripts/evaluate_predictions.py --method docling --dataset doclaynet --loose`
+(763 ảnh có Ground Truth được dùng để đánh giá).
 
-| Matching | Precision | Recall | F1 | TP | FP | FN |
-|---|---:|---:|---:|---:|---:|---:|
-| Strict (vị trí + nhãn) | 0.869 | 0.778 | 0.821 | 18,840 | 2,830 | 5,389 |
-| Loose (chỉ vị trí) | 0.907 | 0.811 | 0.856 | 19,650 | 2,020 | 4,579 |
+### Precision / Recall / F1 (micro-average, IoU >= 0.5)
 
-Strict theo lớp: `Table` F1 0.936, `Text` F1 0.898, `Section-header` F1
-0.843, `Picture` F1 0.812. `Page-header` và `Page-footer` có recall 0.000
-strict trên tập này; khi bỏ yêu cầu nhãn, recall lần lượt là 0.082 và 0.010,
-nên phần lớn các vùng này vẫn chưa được định vị đúng ở IoU >= 0.5.
+| | Precision | Recall | F1 |
+|---|---|---|---|
+| Overall (so khớp cả vị trí lẫn nhãn) | 0.888 | 0.882 | 0.885 |
+| Overall (chỉ so vị trí, bỏ qua nhãn) | 0.928 | 0.923 | 0.925 |
 
-Đây là tập train local gồm 1,928 ảnh được giải nén từ hai shard đã tải, không
-phải toàn bộ DocLayNet. Mỗi ảnh có một file prediction; evaluator tính cả ảnh
-không có annotation bằng cách giữ chúng trong tập Ground Truth với danh sách box
-rỗng.
+Mean IoU của các box khớp: 0.931.
 
-**`Page-header` và `Page-footer` recall = 0.00 (0/7 và 0/17) — kể cả khi bỏ
-qua nhãn (loose).** Nghĩa là Docling không vẽ bất kỳ box nào đè lên vùng này,
-không phải lỗi gán nhãn sai. Đã xác nhận nguyên nhân bằng cách đọc source code
-Docling (`layout_object_detection_model.py`) và thực nghiệm trực tiếp:
+### mAP kiểu COCO (pycocotools, maxDets=100)
 
-1. Stage `layout` chạy **trước** stage `ocr` trong pipeline (xem
-   `standard_pdf_pipeline.py`), nên việc phát hiện box hoàn toàn dựa vào thị
-   giác, KHÔNG dùng text OCR để quyết định có cluster ở đâu — việc tắt
-   `do_ocr` không ảnh hưởng tới bước này.
-2. Model layout mặc định (`docling-layout-heron`) là kiến trúc **RT-DETR**,
-   luôn resize ảnh trang về đúng **640x640** trước khi detect (kiểm tra bằng
-   `AutoImageProcessor.from_pretrained(...)`), bất kể ảnh gốc là 1025x1025
-   hay bao nhiêu. Các box Page-header/Page-footer trong DocLayNet vốn đã rất
-   mỏng (~5-20px trên ảnh gốc 1025px), sau khi scale xuống 640px chỉ còn
-   ~3-13px, nằm sát mép ảnh.
-3. Đã thử hạ `score_threshold` từ mặc định 0.3 xuống 0.05 (gần như chấp nhận
-   mọi độ tin cậy) trên 3 ảnh có GT header/footer — vẫn ra 0 box trong vùng
-   đó. Vậy đây **không phải do ngưỡng confidence lọc mất**, mà do RT-DETR
-   (dùng số lượng object query cố định, học cách bắt các object "kích thước
-   điển hình") không hề sinh ra đề xuất nào cho các dải mỏng dính sát biên
-   ảnh — một điểm yếu kinh điển của họ model DETR với vật thể nhỏ ở rìa ảnh.
+| mAP@[.5:.95] | mAP@.5 | mAP@.75 | AR@100 |
+|---|---|---|---|
+| 0.572 | 0.684 | 0.621 | 0.621 |
 
-Hướng cải thiện có thể thử: dùng ảnh trang ở độ phân giải cao hơn kết hợp
-crop riêng dải rìa trên/dưới trước khi đưa vào model, hoặc thử model layout
-khác của Docling (`DOCLING_LAYOUT_EGRET_*`, độ chính xác cao hơn heron).
+| Nhãn | AP | AP50 | | Nhãn | AP | AP50 |
+|---|---|---|---|---|---|---|
+| Table | 0.882 | 0.926 | | Page-footer | 0.602 | 0.894 |
+| Text | 0.851 | 0.904 | | Page-header | 0.541 | 0.781 |
+| Picture | 0.763 | 0.841 | | Caption | 0.453 | 0.540 |
+| List-item | 0.670 | 0.740 | | Footnote | 0.304 | 0.380 |
+| Section-header | 0.652 | 0.834 | | Title | 0.000 | 0.000 |
+
+(`Formula` không có trong 763 ảnh này nên không có AP.)
+
+Lưu ý khi đọc mAP:
+- mAP là **trung bình đều giữa các nhãn** (macro), nên nhãn hiếm và yếu (Title,
+  Footnote) kéo điểm xuống mạnh; còn P/R/F1 ở trên là micro, bị chi phối bởi `Text`.
+  Vì vậy mAP@.5 (0.684) thấp hơn F1 (0.885) dù cùng ngưỡng IoU.
+- Docling chỉ trả về box có confidence >= `score_threshold` (mặc định 0.3), nên
+  đường Precision-Recall bị cắt ở vùng recall cao. mAP ở đây có thể **thấp hơn**
+  so với khi đánh giá model với toàn bộ box dự đoán như trong paper.
+
+### Nhận xét theo nhãn
+
+- `Table`, `Text`, `Picture` tốt nhất (F1 0.85-0.94, AP 0.76-0.88).
+- `Section-header` precision thấp hơn recall: Docling tách tên người/chức danh
+  thành nhiều `section_header` nhỏ trong khi Ground Truth gộp vào 1 khối `Text`.
+- `List-item` precision cao (0.96) nhưng recall thấp (0.74); khi bỏ qua nhãn thì
+  recall lên 0.875 → một phần list-item bị gán nhầm thành `text`.
+- `Title` = 0 khi so cả nhãn nhưng khớp 18/21 khi bỏ qua nhãn: Docling phát hiện
+  đúng vị trí nhưng gán thành `section_header` (11), `text` (6), `page_header` (1).
+- `Page-header` / `Page-footer` đạt F1 0.84 / 0.92. Phiên bản trước lấy box từ
+  `document.iterate_items()` nên mất toàn bộ hai nhãn này (recall = 0), và từng
+  bị diễn giải nhầm là do model RT-DETR không phát hiện được dải mỏng ở mép ảnh.
+  Thực tế model vẫn phát hiện được; box chỉ bị bỏ ở bước dựng `DoclingDocument`.

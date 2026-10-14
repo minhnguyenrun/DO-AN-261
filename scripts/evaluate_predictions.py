@@ -295,6 +295,9 @@ def main() -> None:
             output_path=plot_path,
         )
 
+    if not args.no_map:
+        run_coco_map(gt, pred_by_image, set(gt_subset))
+
 
 if __name__ == "__main__":
     main()
