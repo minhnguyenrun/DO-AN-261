@@ -7,6 +7,12 @@ danh gia bang module nay.
 """
 
 from collections import defaultdict
+import contextlib
+import io
+
+import numpy as np
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
 
 
 def iou(box_a: list, box_b: list) -> float:
@@ -127,12 +133,6 @@ def coco_map(gt_coco: dict, predictions: list, iou_type: str = "bbox") -> dict:
 
     Tra ve dict {"overall": {...}, "per_category": {category_id: {"name", "ap", "ap50"}}}.
     """
-    import contextlib
-    import io
-
-    import numpy as np
-    from pycocotools.coco import COCO
-    from pycocotools.cocoeval import COCOeval
 
     gt_coco = dict(gt_coco)
     gt_coco["annotations"] = [
