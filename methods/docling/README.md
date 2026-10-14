@@ -20,12 +20,12 @@ python methods/docling/src/run_inference.py --dataset doclaynet --limit 20
 python methods/docling/src/run_inference.py --dataset doclaynet --limit 0 --skip-existing
 
 # ve hinh so sanh Ground Truth vs. du doan
-python visualization/scripts/visualize_predictions.py --method docling --dataset doclaynet --limit 20
+python visualization/scripts/visualize_predictions.py --method docling --dataset doclaynet --limit 20 --output-dir outputs/reports/docling_doclaynet
 ```
 
 Kết quả JSON lưu tại `outputs/predictions/docling/doclaynet/<image_id>.json`
 (mỗi ảnh một file, gồm `detections`: list `{category_id, category_name, bbox}`).
-Hình so sánh lưu tại `visualization/figures/docling_doclaynet/<image_id>.png`.
+Hình so sánh lưu tại `outputs/reports/docling_doclaynet/<image_id>.png`.
 
 Có thể mở và chạy lần lượt các cell trong
 [`notebooks/docling_report.ipynb`](notebooks/docling_report.ipynb) để kết hợp

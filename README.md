@@ -19,28 +19,18 @@ Xem chi tiết nguồn và cách tải dữ liệu tại [datasets/README.md](da
 
 ## Cách chạy
 
-1. Tạo virtualenv và cài dependency của phương pháp muốn chạy (mỗi folder trong
-   `methods/<method>/` có `requirements.txt` riêng):
-
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate   # Windows
-   pip install -r scripts/download_datasets/requirements.txt
-   pip install -r methods/<method>/requirements.txt
-   ```
-
-2. Tải dataset:
+1. Tải dataset:
 
    ```bash
    python scripts/download_datasets/download_doclaynet.py --max-size-gb 1
    python scripts/download_datasets/download_publaynet.py --max-size-gb 1
    ```
 
-3. Chạy phương pháp tương ứng trong `methods/<method>/src/` hoặc notebook trong
+2. Chạy phương pháp tương ứng trong `methods/<method>/src/` hoặc notebook trong
    `methods/<method>/notebooks/`. Kết quả JSON dự đoán được lưu vào
    `outputs/predictions/<method>/<dataset>/`.
 
-4. Dùng `visualization/scripts/` để ghép ảnh/PDF gốc với JSON dự đoán thành hình
+3. Dùng `visualization/scripts/` để ghép ảnh/PDF gốc với JSON dự đoán thành hình
    trực quan, lưu vào `visualization/figures/` để đưa vào báo cáo.
 
 ## Phân công

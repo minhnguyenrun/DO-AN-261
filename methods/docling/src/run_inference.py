@@ -1,32 +1,16 @@
-"""Chạy layout detection bằng Docling trên ảnh đã xử lý của một dataset.
-
-Chỉ chạy stage layout (tắt OCR, table structure, các enrichment khác) để
-nhanh và đủ cho bài toán Document Layout Analysis. Model mặc định của
-Docling (`docling-layout-heron`) được huấn luyện trên chính DocLayNet, nên
-nhãn đầu ra (DocItemLabel) khớp trực tiếp với 11 nhãn của DocLayNet.
-
-Kết quả dự đoán được lưu mỗi ảnh một file JSON tại
-outputs/predictions/docling/<dataset>/<image_id>.json
-
-Usage:
-    python methods/docling/src/run_inference.py --dataset doclaynet --limit 20
-"""
+"""Run Docling layout detection on a processed dataset."""
 
 import argparse
 import json
 import time
 from pathlib import Path
 
-from docling.datamodel.base_models import InputFormat
+from docling.datamodel.base_models import DocItemLabel, InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, ImageFormatOption
 
-THIS_DIR = Path(__file__).resolve().parent
-ROOT_DIR = THIS_DIR / "../../.."
+ROOT_DIR = Path(__file__).resolve().parents[3]
 
-# Map nhãn Docling (DocItemLabel) -> category_id DocLayNet (xem
-# scripts/download_datasets/download_doclaynet.py). Nhãn Docling không có
-# trong DocLayNet (chart, code, ...) được giữ lại với category_id = None.
 LABEL_TO_DOCLAYNET_ID = {
     "caption": 1,
     "footnote": 2,
@@ -43,45 +27,49 @@ LABEL_TO_DOCLAYNET_ID = {
 
 
 def build_converter() -> DocumentConverter:
-    opts = PdfPipelineOptions()
-    opts.do_ocr = False
-    opts.do_table_structure = False
-    opts.do_picture_classification = False
-    opts.do_picture_description = False
-    opts.do_chart_extraction = False
-    opts.do_code_enrichment = False
-    opts.do_formula_enrichment = False
-    opts.generate_page_images = False
-    # Khong OCR nen cluster text se "rong" (khong co noi dung) -> phai giu lai
-    # de khong bi loai khoi ket qua layout.
-    opts.layout_options.keep_empty_clusters = True
+    options = PdfPipelineOptions()
+    options.do_ocr = False
+    options.do_table_structure = False
+    options.do_picture_classification = False
+    options.do_picture_description = False
+    options.do_chart_extraction = False
+    options.do_code_enrichment = False
+    options.do_formula_enrichment = False
+    options.generate_page_images = False
+    # Keep layout clusters even when they have no OCR text.
+    options.layout_options.keep_empty_clusters = True
 
     return DocumentConverter(
         allowed_formats=[InputFormat.IMAGE],
-        format_options={InputFormat.IMAGE: ImageFormatOption(pipeline_options=opts)},
+        format_options={
+            InputFormat.IMAGE: ImageFormatOption(pipeline_options=options)
+        },
     )
 
 
 def run_on_image(converter: DocumentConverter, image_path: Path) -> dict:
-    result = converter.convert(str(image_path))
-    doc = result.document
-    page = doc.pages[1]
+    document = converter.convert(str(image_path)).document
+    page = document.pages[1]
     width, height = page.size.width, page.size.height
 
     detections = []
-    for item, _level in doc.iterate_items():
+    for item, _ in document.iterate_items():
         if not item.prov:
             continue
+
         label = item.label.value
         bbox = item.prov[0].bbox.to_top_left_origin(height)
-        detections.append({
-            "category_id": LABEL_TO_DOCLAYNET_ID.get(label),
-            "category_name": label,
-            "bbox": [bbox.l, bbox.t, bbox.r - bbox.l, bbox.b - bbox.t],
-        })
+        detections.append(
+            {
+                "category_id": LABEL_TO_DOCLAYNET_ID.get(label),
+                "category_name": label,
+                "bbox": [bbox.l, bbox.t, bbox.r - bbox.l, bbox.b - bbox.t],
+            }
+        )
 
+    image_id = int(image_path.stem) if image_path.stem.isdigit() else image_path.stem
     return {
-        "image_id": int(image_path.stem) if image_path.stem.isdigit() else image_path.stem,
+        "image_id": image_id,
         "file_name": image_path.name,
         "width": width,
         "height": height,
@@ -89,46 +77,83 @@ def run_on_image(converter: DocumentConverter, image_path: Path) -> dict:
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", default="doclaynet", help="Ten dataset (vd: doclaynet)")
-    parser.add_argument("--limit", type=int, default=20, help="So anh toi da se chay (mac dinh 20)")
-    parser.add_argument("--skip-existing", action="store_true",
-                        help="Bo qua anh da co file prediction de tiep tuc lan chay truoc")
+    parser.add_argument("--dataset", default="doclaynet")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Maximum number of images; 0 processes the full dataset (default).",
+    )
+    run_mode = parser.add_mutually_exclusive_group()
+    run_mode.add_argument(
+        "--skip-existing",
+        dest="skip_existing",
+        action="store_true",
+        help="Skip images that already have a prediction (default).",
+    )
+    run_mode.add_argument(
+        "--force",
+        dest="skip_existing",
+        action="store_false",
+        help="Run inference again and overwrite existing predictions.",
+    )
+    parser.set_defaults(skip_existing=True)
     args = parser.parse_args()
 
     images_dir = ROOT_DIR / "datasets" / args.dataset / "processed" / "images"
     output_dir = ROOT_DIR / "outputs" / "predictions" / "docling" / args.dataset
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    image_paths = sorted(images_dir.glob("*.png"), key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
+    image_paths = sorted(
+        images_dir.glob("*.png"),
+        key=lambda path: (
+            0,
+            int(path.stem),
+        )
+        if path.stem.isdigit()
+        else (1, path.stem),
+    )
     if args.limit > 0:
         image_paths = image_paths[: args.limit]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     if args.skip_existing:
         image_paths = [
-            image_path for image_path in image_paths
-            if not (output_dir / f"{image_path.stem}.json").exists()
+            path for path in image_paths if not (output_dir / f"{path.stem}.json").exists()
         ]
 
-    print(f"[docling] Chay layout detection tren {len(image_paths)} anh tu {images_dir}")
+    print(
+        f"[docling] {len(image_paths)} image(s) to predict from {images_dir}"
+        f"{' (existing predictions skipped)' if args.skip_existing else ' (force overwrite)'}"
+    )
+    if not image_paths:
+        print(f"[docling] No work to do. Predictions are in {output_dir}")
+        return
+
+    print(f"[docling] Available Docling labels: {', '.join(label.value for label in DocItemLabel)}")
     converter = build_converter()
+    total_seconds = 0.0
 
-    total_time = 0.0
-    for i, image_path in enumerate(image_paths, 1):
-        t0 = time.time()
+    for index, image_path in enumerate(image_paths, start=1):
+        started = time.time()
         prediction = run_on_image(converter, image_path)
-        dt = time.time() - t0
-        total_time += dt
+        elapsed = time.time() - started
+        total_seconds += elapsed
 
-        out_path = output_dir / f"{image_path.stem}.json"
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(prediction, f)
+        output_path = output_dir / f"{image_path.stem}.json"
+        output_path.write_text(
+            json.dumps(prediction, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(
+            f"  [{index}/{len(image_paths)}] {image_path.name}: "
+            f"{len(prediction['detections'])} boxes ({elapsed:.2f}s)"
+        )
 
-        print(f"  [{i}/{len(image_paths)}] {image_path.name}: "
-              f"{len(prediction['detections'])} box ({dt:.2f}s)")
-
-    print(f"[docling] Xong. Trung binh {total_time / max(len(image_paths), 1):.2f}s/anh. "
-          f"Ket qua tai {output_dir}")
+    print(
+        f"[docling] Done. Average {total_seconds / len(image_paths):.2f}s/image. "
+        f"Predictions: {output_dir}"
+    )
 
 
 if __name__ == "__main__":
