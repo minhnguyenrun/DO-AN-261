@@ -20,7 +20,16 @@ __pycache__/
 *.safetensors
 *.ckpt
 
+# MMDetection mã nguồn bên ngoài (tự động clone trong notebook khi chạy)
+methods/m2doc/mmdetection/
+**/mmdet/.mim/
+**/mmdetection/demo/*.ipynb
+
+# Ảnh trực quan hóa local
+visualization/figures/
+
 # Bí mật và rác hệ điều hành
 .env
 .DS_Store
 Thumbs.db
+

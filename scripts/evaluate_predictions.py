@@ -13,15 +13,26 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.common.metrics import evaluate  # noqa: E402
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+from src.common.metrics import coco_map, evaluate  # noqa: E402
 
 
-def load_ground_truth(annotation_path: Path) -> tuple[dict, dict]:
-    data = json.loads(annotation_path.read_text(encoding="utf-8"))
-    category_names = {category["id"]: category["name"] for category in data["categories"]}
-    ground_truth = {image["id"]: [] for image in data["images"]}
+def load_ground_truth(annotation_path: Path) -> tuple[dict, dict, dict]:
+    raw_coco = json.loads(annotation_path.read_text(encoding="utf-8"))
+    category_names = {category["id"]: category["name"] for category in raw_coco["categories"]}
+    ground_truth = {image["id"]: [] for image in raw_coco["images"]}
 
-    for annotation in data["annotations"]:
+    for annotation in raw_coco["annotations"]:
         ground_truth[annotation["image_id"]].append(
             {
                 "category_id": annotation["category_id"],
@@ -29,7 +40,7 @@ def load_ground_truth(annotation_path: Path) -> tuple[dict, dict]:
             }
         )
 
-    return ground_truth, category_names
+    return raw_coco, ground_truth, category_names
 
 
 def load_predictions(predictions_dir: Path) -> tuple[dict, list[dict]]:
@@ -111,6 +122,69 @@ def print_report(result: dict, category_names: dict, title: str) -> None:
             f"{metrics['fp']:>7}{metrics['fn']:>7}{metrics['precision']:>9.3f}"
             f"{metrics['recall']:>9.3f}{metrics['f1']:>9.3f}"
         )
+
+
+def run_coco_map(gt_coco: dict, predictions_by_image: dict, evaluated_image_ids: set) -> None:
+    """Tính và in bảng mAP kiểu COCO (maxDets=100) trên tập ảnh evaluated_image_ids."""
+    all_detections = [
+        d for img_id in evaluated_image_ids for d in predictions_by_image.get(img_id, [])
+    ]
+    if not all_detections:
+        print("\n[mAP] Khong co du doan nao de tinh mAP.")
+        return
+
+    has_score = all(d.get("score") is not None for d in all_detections)
+    if not has_score:
+        print(
+            "\n[mAP] Bo qua: file du doan khong co truong 'score' "
+            "(chay lai inference de luu confidence/score)."
+        )
+        return
+
+    cat_ids = {c["id"] for c in gt_coco["categories"]}
+    gt_subset = {
+        "images": [img for img in gt_coco["images"] if img["id"] in evaluated_image_ids],
+        "annotations": [
+            ann for ann in gt_coco["annotations"] if ann["image_id"] in evaluated_image_ids
+        ],
+        "categories": gt_coco["categories"],
+    }
+
+    coco_predictions = [
+        {
+            "image_id": img_id,
+            "category_id": d["category_id"],
+            "bbox": d["bbox"],
+            "score": float(d["score"]),
+        }
+        for img_id in evaluated_image_ids
+        for d in predictions_by_image.get(img_id, [])
+        if d.get("category_id") in cat_ids
+    ]
+
+    try:
+        result = coco_map(gt_subset, coco_predictions)
+    except Exception as exc:
+        print(f"\n[mAP] Khong the tinh COCO mAP: {exc}")
+        return
+
+    def fmt(x: float) -> str:
+        return f"{x:.3f}" if x >= 0 else "    -  "
+
+    o = result["overall"]
+    print("\n=== COCO-style mAP (maxDets=100) ===")
+    print(
+        f"mAP@[.5:.95]={fmt(o['map'])}  mAP@.5={fmt(o['map50'])}  mAP@.75={fmt(o['map75'])}"
+    )
+    print(
+        f"mAP small/medium/large={fmt(o['map_small'])}/{fmt(o['map_medium'])}/{fmt(o['map_large'])}  "
+        f"AR@1/10/100={fmt(o['ar1'])}/{fmt(o['ar10'])}/{fmt(o['ar100'])}"
+    )
+    print(f"{'Category':<18}{'AP':>9}{'AP50':>9}")
+    for c in sorted(
+        result["per_category"].values(), key=lambda item: item["ap"], reverse=True
+    ):
+        print(f"{c['name']:<18}{fmt(c['ap']):>9}{fmt(c['ap50']):>9}")
 
 
 def plot_evaluation_results(
@@ -211,6 +285,11 @@ def main() -> None:
         help="Cho phép đánh giá trên tập ảnh hiện có dự đoán (hữu ích khi test với --limit).",
     )
     parser.add_argument(
+        "--no-map",
+        action="store_true",
+        help="Không tính mAP kiểu COCO.",
+    )
+    parser.add_argument(
         "--plot",
         nargs="?",
         const="default",
@@ -229,7 +308,7 @@ def main() -> None:
     )
     predictions_dir = ROOT_DIR / "outputs" / "predictions" / args.method / args.dataset
 
-    ground_truth, category_names = load_ground_truth(annotation_path)
+    raw_coco, ground_truth, category_names = load_ground_truth(annotation_path)
     predictions, detections = load_predictions(predictions_dir)
     missing_ids = set(ground_truth) - set(predictions)
     if missing_ids:
@@ -296,7 +375,7 @@ def main() -> None:
         )
 
     if not args.no_map:
-        run_coco_map(gt, pred_by_image, set(gt_subset))
+        run_coco_map(raw_coco, predictions, set(ground_truth.keys()))
 
 
 if __name__ == "__main__":

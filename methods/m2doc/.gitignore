@@ -1,0 +1,20 @@
+# Bỏ qua file trọng số mô hình lớn (>100MB)
+weights/*.pth
+weights/*.pt
+weights/*.ckpt
+weights/*.bin
+
+# Giữ lại tài liệu hướng dẫn và placeholder
+!weights/README.md
+!weights/.gitkeep
+!report/.gitkeep
+
+# Bỏ qua cache và file build tạm
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+mmdetection/mmdet/.mim/
+mmdetection/demo/*.ipynb
+
+# Bỏ qua mã nguồn bên ngoài
+mmdetection/

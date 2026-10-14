@@ -11,8 +11,6 @@ import contextlib
 import io
 
 import numpy as np
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 
 
 def iou(box_a: list, box_b: list) -> float:
@@ -140,6 +138,14 @@ def coco_map(gt_coco: dict, predictions: list, iou_type: str = "bbox") -> dict:
          "area": ann.get("area", ann["bbox"][2] * ann["bbox"][3])}
         for ann in gt_coco["annotations"]
     ]
+
+    try:
+        from pycocotools.coco import COCO
+        from pycocotools.cocoeval import COCOeval
+    except ImportError:
+        raise ImportError(
+            "Cần cài đặt thư viện 'pycocotools' để tính mAP. Vui lòng cài đặt: pip install pycocotools"
+        )
 
     # pycocotools in rat nhieu log, gom lai de khong lan voi bao cao.
     log = io.StringIO()

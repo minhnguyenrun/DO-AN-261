@@ -1,0 +1,7 @@
+{
+  "python.analysis.extraPaths": [
+    "./methods/m2doc/mmdetection",
+    "./methods/m2doc/src",
+    "./src"
+  ]
+}
