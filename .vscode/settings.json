@@ -2,6 +2,9 @@
   "python.analysis.extraPaths": [
     "./methods/m2doc/mmdetection",
     "./methods/m2doc/src",
+    "./methods/dots_ocr/src",
+    "./methods/dots_mocr/src",
+    "./methods/chandra/src",
     "./src"
   ]
 }

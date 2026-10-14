@@ -1,0 +1,10 @@
+# dots.ocr dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.40.0
+qwen-vl-utils>=0.0.8
+accelerate>=0.28.0
+pillow>=9.0.0
+huggingface_hub>=0.20.0
+opencv-python>=4.6.0
+pyarrow>=14.0.0

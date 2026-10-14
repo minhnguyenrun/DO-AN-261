@@ -1,0 +1,23 @@
+# Ignore model weights and checkpoints (> 100MB)
+weights/*.bin
+weights/*.safetensors
+weights/*.pt
+weights/*.pth
+weights/*.onnx
+weights/*.tflite
+weights/*-of-*
+weights/.cache/
+weights/tmp*
+
+# Allow readme and gitkeep
+!weights/README.md
+!weights/.gitkeep
+
+# Ignore python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Keep report folder tracked
+!report/.gitkeep

@@ -1,0 +1,15 @@
+# Bỏ qua file trọng số mô hình lớn (>100MB)
+weights/*.safetensors
+weights/*.bin
+weights/*.pt
+weights/*.pth
+
+# Giữ lại tài liệu hướng dẫn và placeholder
+!weights/README.md
+!weights/.gitkeep
+!report/.gitkeep
+
+# Bỏ qua cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

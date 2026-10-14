@@ -1,0 +1,11 @@
+# Yêu cầu thư viện cho phương pháp Chandra (Datalab)
+torch>=2.2.0
+torchvision>=0.17.0
+transformers>=4.45.0
+accelerate>=0.28.0
+pillow>=10.0.0
+huggingface_hub>=0.20.0
+opencv-python>=4.8.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+beautifulsoup4>=4.12.0
